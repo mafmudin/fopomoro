@@ -1,0 +1,79 @@
+:root {
+  --base: #1E1E2E;
+  --surface: #313244;
+  --text: #CDD6F4;
+  --subtext: #BAC2DE;
+  --accent: #89B4FA;
+  --green: #A6E3A1;
+  --red: #F38BA8;
+  --yellow: #F9E2AF;
+  --panel-bg: #CC1E1E2E;
+  --panel-bg-clickthrough: #CC0D1B2E;
+  --accent-hover: #A6C8FF;
+  --accent-press: #6B9CDB;
+  --surface-hover: #3D3D52;
+  --surface-press: #2A2A3C;
+  --danger-hover: #F5A0B5;
+  --danger-press: #D96B85;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  overflow: hidden;
+  font-family: -apple-system, "Segoe UI", system-ui, sans-serif;
+  color: var(--text);
+}
+
+.section-header {
+  color: var(--subtext);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+button {
+  font-family: inherit;
+  border: none;
+  cursor: pointer;
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-weight: 600;
+  color: var(--base);
+  background: var(--accent);
+  transition: background 0.12s ease;
+}
+button:hover { background: var(--accent-hover); }
+button:active { background: var(--accent-press); }
+button:disabled { opacity: 0.5; cursor: default; }
+
+button.secondary { background: var(--surface); color: var(--text); }
+button.secondary:hover { background: var(--surface-hover); }
+button.secondary:active { background: var(--surface-press); }
+
+button.danger { background: var(--red); padding: 6px 4px; }
+button.danger:hover { background: var(--danger-hover); }
+button.danger:active { background: var(--danger-press); }
+
+button.icon {
+  background: transparent;
+  color: var(--subtext);
+  padding: 2px 4px;
+  font-weight: 400;
+}
+button.icon:hover { background: transparent; color: var(--text); }
+button.icon.on { color: var(--accent); }
+
+input[type="text"], input.num {
+  box-sizing: border-box;
+  background: var(--surface);
+  color: var(--text);
+  border: 1.5px solid var(--surface);
+  border-radius: 8px;
+  padding: 8px 6px;
+  font-family: inherit;
+  font-size: 13px;
+  caret-color: var(--accent);
+}
+input[type="text"]:focus, input.num:focus { outline: none; border-color: var(--accent); }
