@@ -1,12 +1,13 @@
 <script lang="ts">
-  import { onDestroy } from "svelte";
+  import { onMount, onDestroy } from "svelte";
   import Clock from "./lib/components/Clock.svelte";
   import Pomodoro from "./lib/components/Pomodoro.svelte";
   import { createPomodoro } from "./lib/stores/timer";
   import { playChime } from "./lib/sound";
   import { notify } from "./lib/notify";
+  import { api } from "./lib/api";
+  import type { PomodoroConfig } from "./lib/types";
 
-  // Config persistence comes online in a later task; default for now.
   const pomodoro = createPomodoro({ focus_minutes: 25, short_break_minutes: 5, long_break_minutes: 15 });
 
   pomodoro.onSessionComplete((_minutes, wasFocus) => {
@@ -14,6 +15,23 @@
     if (wasFocus) notify("Focus Complete", "Time for a break!");
     else notify("Break Over", "Back to focus!");
   });
+
+  onMount(async () => {
+    try {
+      const cfg = await api.loadConfig();
+      pomodoro.applyConfig(
+        String(cfg.focus_minutes),
+        String(cfg.short_break_minutes),
+        String(cfg.long_break_minutes),
+      );
+    } catch (e) {
+      console.warn("[fopomoro] loadConfig failed, using defaults:", e);
+    }
+  });
+
+  function persistConfig(config: PomodoroConfig) {
+    api.saveConfig(config).catch((e) => console.warn("[fopomoro] saveConfig failed:", e));
+  }
 
   onDestroy(() => pomodoro.dispose());
 </script>
@@ -28,7 +46,7 @@
   </header>
 
   <Clock />
-  <Pomodoro {pomodoro} />
+  <Pomodoro {pomodoro} onConfigSaved={persistConfig} />
   <section class="slot"><span class="section-header">TASKS</span></section>
   <section class="slot"><span class="section-header">TODAY</span></section>
 
