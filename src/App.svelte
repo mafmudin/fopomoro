@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Clock from "./lib/components/Clock.svelte";
 </script>
 
 <main class="panel">
@@ -10,7 +11,7 @@
     </div>
   </header>
 
-  <section class="slot"><span class="section-header">CLOCK</span></section>
+  <Clock />
   <section class="slot"><span class="section-header">POMODORO</span></section>
   <section class="slot"><span class="section-header">TASKS</span></section>
   <section class="slot"><span class="section-header">TODAY</span></section>
