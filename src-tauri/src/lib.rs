@@ -29,10 +29,15 @@ pub fn run() {
                 eprintln!("[supabase] .env not found or incomplete — running offline.");
             }
 
+            let http = reqwest::Client::builder()
+                .timeout(std::time::Duration::from_secs(10))
+                .build()
+                .expect("failed to build HTTP client");
+
             app.manage(AppState {
                 data_dir,
                 supabase,
-                http: reqwest::Client::new(),
+                http,
             });
             Ok(())
         })
@@ -46,6 +51,7 @@ pub fn run() {
             commands::insert_task,
             commands::update_task,
             commands::delete_task,
+            commands::record_session,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
