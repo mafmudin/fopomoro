@@ -1,13 +1,23 @@
 name: Release (macOS)
 
-# Manual trigger: run from the Actions tab → "Run workflow".
-# Builds the macOS app and creates a tag + GitHub Release (v<version> from
-# src-tauri/tauri.conf.json) with the .dmg attached.
+# Manual trigger: Actions tab → "Run workflow" → choose the version bump.
+# Bumps the version (major/minor/patch) in the manifests, commits it back to
+# main, then builds the macOS app and creates a tag + GitHub Release
+# (v<new-version> from src-tauri/tauri.conf.json) with the .dmg attached.
 on:
   workflow_dispatch:
+    inputs:
+      bump:
+        description: "Semantic version bump"
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+        default: patch
 
 permissions:
-  contents: write # create the tag + release
+  contents: write # commit the version bump + create the tag/release
 
 jobs:
   release:
@@ -22,6 +32,27 @@ jobs:
         with:
           node-version: 20
 
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Bump version & commit
+        run: |
+          CURRENT=$(node -p "require('./src-tauri/tauri.conf.json').version")
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT"
+          case "${{ inputs.bump }}" in
+            major) MAJOR=$((MAJOR + 1)); MINOR=0; PATCH=0 ;;
+            minor) MINOR=$((MINOR + 1)); PATCH=0 ;;
+            patch) PATCH=$((PATCH + 1)) ;;
+          esac
+          NEW="${MAJOR}.${MINOR}.${PATCH}"
+          echo "Bumping $CURRENT -> $NEW (${{ inputs.bump }})"
+          node -e "const fs=require('fs');const p='src-tauri/tauri.conf.json';const j=JSON.parse(fs.readFileSync(p,'utf8'));j.version='$NEW';fs.writeFileSync(p,JSON.stringify(j,null,2)+'\n')"
+          npm pkg set version="$NEW"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -am "chore: release v$NEW"
+          git push
+
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
 
@@ -29,9 +60,6 @@ jobs:
         uses: swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
-
-      - name: Install frontend dependencies
-        run: npm ci
 
       - name: Build, tag & release
         uses: tauri-apps/tauri-action@v0
@@ -41,7 +69,7 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
         with:
-          tagName: v__VERSION__ # __VERSION__ ← src-tauri/tauri.conf.json
+          tagName: v__VERSION__ # __VERSION__ ← bumped src-tauri/tauri.conf.json
           releaseName: "FoPoMoro v__VERSION__"
           releaseBody: "Automated macOS build (.dmg). Unsigned — on first launch, right-click the app → Open."
           releaseDraft: false
