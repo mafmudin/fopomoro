@@ -1,0 +1,48 @@
+name: Release (macOS)
+
+# Manual trigger: run from the Actions tab → "Run workflow".
+# Builds the macOS app and creates a tag + GitHub Release (v<version> from
+# src-tauri/tauri.conf.json) with the .dmg attached.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write # create the tag + release
+
+jobs:
+  release:
+    runs-on: macos-latest
+    environment: SUPABASE # secrets live in this GitHub Environment
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Build, tag & release
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Baked into the binary at compile time (see supabase.rs read_secret).
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        with:
+          tagName: v__VERSION__ # __VERSION__ ← src-tauri/tauri.conf.json
+          releaseName: "FoPoMoro v__VERSION__"
+          releaseBody: "Automated macOS build (.dmg). Unsigned — on first launch, right-click the app → Open."
+          releaseDraft: false
+          prerelease: false

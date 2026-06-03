@@ -10,13 +10,24 @@ pub struct SupabaseConfig {
 
 impl SupabaseConfig {
     pub fn from_env() -> Option<Self> {
-        let url = env::var("SUPABASE_URL").ok().filter(|s| !s.is_empty())?;
-        let key = env::var("SUPABASE_ANON_KEY").ok().filter(|s| !s.is_empty())?;
+        // Runtime env (dev: loaded from .env via dotenvy) takes precedence; fall back
+        // to values baked at compile time — the CI release build sets these from
+        // GitHub secrets so the distributed bundle can sync without a local .env.
+        let url = read_secret("SUPABASE_URL", option_env!("SUPABASE_URL"))?;
+        let key = read_secret("SUPABASE_ANON_KEY", option_env!("SUPABASE_ANON_KEY"))?;
         Some(Self {
             base_url: format!("{}/rest/v1", url.trim_end_matches('/')),
             key,
         })
     }
+}
+
+/// Prefer the runtime env var; fall back to a value baked in at compile time.
+fn read_secret(var: &str, baked: Option<&str>) -> Option<String> {
+    env::var(var)
+        .ok()
+        .filter(|s| !s.is_empty())
+        .or_else(|| baked.filter(|s| !s.is_empty()).map(str::to_string))
 }
 
 #[derive(Deserialize)]
