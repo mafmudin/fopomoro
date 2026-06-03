@@ -1,5 +1,21 @@
 <script lang="ts">
+  import { onDestroy } from "svelte";
   import Clock from "./lib/components/Clock.svelte";
+  import Pomodoro from "./lib/components/Pomodoro.svelte";
+  import { createPomodoro } from "./lib/stores/timer";
+  import { playChime } from "./lib/sound";
+  import { notify } from "./lib/notify";
+
+  // Config persistence comes online in a later task; default for now.
+  const pomodoro = createPomodoro({ focus_minutes: 25, short_break_minutes: 5, long_break_minutes: 15 });
+
+  pomodoro.onSessionComplete((_minutes, wasFocus) => {
+    playChime();
+    if (wasFocus) notify("Focus Complete", "Time for a break!");
+    else notify("Break Over", "Back to focus!");
+  });
+
+  onDestroy(() => pomodoro.dispose());
 </script>
 
 <main class="panel">
@@ -12,7 +28,7 @@
   </header>
 
   <Clock />
-  <section class="slot"><span class="section-header">POMODORO</span></section>
+  <Pomodoro {pomodoro} />
   <section class="slot"><span class="section-header">TASKS</span></section>
   <section class="slot"><span class="section-header">TODAY</span></section>
 
