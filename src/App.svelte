@@ -2,13 +2,24 @@
   import { onMount, onDestroy } from "svelte";
   import Clock from "./lib/components/Clock.svelte";
   import Pomodoro from "./lib/components/Pomodoro.svelte";
+  import TaskList from "./lib/components/TaskList.svelte";
   import { createPomodoro } from "./lib/stores/timer";
+  import { createTasksStore } from "./lib/stores/tasks";
   import { playChime } from "./lib/sound";
   import { notify } from "./lib/notify";
   import { api } from "./lib/api";
   import type { PomodoroConfig } from "./lib/types";
 
   const pomodoro = createPomodoro({ focus_minutes: 25, short_break_minutes: 5, long_break_minutes: 15 });
+  const tasksStore = createTasksStore();
+  const pomodoroState = pomodoro.state;
+
+  // The timer's running state has two consumers: this effect drives the tasks
+  // store's lock guards, and `timerRunning` is also passed to <TaskList> as a
+  // prop to show the "locked" notice.
+  $effect(() => {
+    tasksStore.setTimerRunning($pomodoroState.isRunning);
+  });
 
   pomodoro.onSessionComplete((_minutes, wasFocus) => {
     playChime();
@@ -27,6 +38,7 @@
     } catch (e) {
       console.warn("[fopomoro] loadConfig failed, using defaults:", e);
     }
+    await tasksStore.load();
   });
 
   function persistConfig(config: PomodoroConfig) {
@@ -47,7 +59,7 @@
 
   <Clock />
   <Pomodoro {pomodoro} onConfigSaved={persistConfig} />
-  <section class="slot"><span class="section-header">TASKS</span></section>
+  <TaskList store={tasksStore} timerRunning={$pomodoroState.isRunning} />
   <section class="slot"><span class="section-header">TODAY</span></section>
 
   <div class="opacity-row">
