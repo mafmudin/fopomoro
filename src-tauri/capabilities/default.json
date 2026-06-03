@@ -5,6 +5,9 @@
   "windows": ["main"],
   "permissions": [
     "core:default",
+    "core:window:allow-close",
+    "core:window:allow-set-visible-on-all-workspaces",
+    "core:window:allow-set-size",
     "notification:default"
   ]
 }

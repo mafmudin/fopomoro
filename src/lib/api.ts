@@ -10,7 +10,7 @@ export const api = {
 
   setClickThrough: (enabled: boolean) => invoke<void>("set_click_through", { enabled }),
 
-  // Implemented in later tasks (commands not registered yet — do not call until then):
+  // Tasks, sessions, and progress:
   getTasks: () => invoke<FoTask[]>("get_tasks"),
   insertTask: (title: string) => invoke<FoTask>("insert_task", { title }),
   updateTask: (task: FoTask) => invoke<void>("update_task", { task }),

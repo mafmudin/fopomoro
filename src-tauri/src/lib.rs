@@ -6,6 +6,7 @@ mod time_utils;
 
 use std::path::PathBuf;
 use tauri::Manager;
+use tauri_plugin_window_state::StateFlags;
 
 pub struct AppState {
     pub data_dir: PathBuf,
@@ -20,6 +21,13 @@ pub fn run() {
 
     tauri::Builder::default()
         .plugin(tauri_plugin_notification::init())
+        // Only remember WHERE the overlay was dragged; size is content-driven
+        // (the frontend ResizeObserver is the authoritative sizer).
+        .plugin(
+            tauri_plugin_window_state::Builder::default()
+                .with_state_flags(StateFlags::POSITION)
+                .build(),
+        )
         .setup(|app| {
             let data_dir = app.path().app_data_dir().expect("no app data dir");
             std::fs::create_dir_all(&data_dir).ok();
