@@ -3,8 +3,11 @@
   import Clock from "./lib/components/Clock.svelte";
   import Pomodoro from "./lib/components/Pomodoro.svelte";
   import TaskList from "./lib/components/TaskList.svelte";
+  import Progress from "./lib/components/Progress.svelte";
   import { createPomodoro } from "./lib/stores/timer";
   import { createTasksStore } from "./lib/stores/tasks";
+  import { createProgressStore } from "./lib/stores/progress";
+  import { get } from "svelte/store";
   import { playChime } from "./lib/sound";
   import { notify } from "./lib/notify";
   import { api } from "./lib/api";
@@ -12,6 +15,7 @@
 
   const pomodoro = createPomodoro({ focus_minutes: 25, short_break_minutes: 5, long_break_minutes: 15 });
   const tasksStore = createTasksStore();
+  const progressStore = createProgressStore();
   const pomodoroState = pomodoro.state;
 
   // The timer's running state has two consumers: this effect drives the tasks
@@ -21,10 +25,19 @@
     tasksStore.setTimerRunning($pomodoroState.isRunning);
   });
 
-  pomodoro.onSessionComplete((_minutes, wasFocus) => {
+  pomodoro.onSessionComplete(async (minutes, wasFocus) => {
     playChime();
-    if (wasFocus) notify("Focus Complete", "Time for a break!");
-    else notify("Break Over", "Back to focus!");
+    if (wasFocus) {
+      await tasksStore.onFocusSessionCompleted(minutes);
+      await progressStore.addFocusSession(minutes);
+      notify("Focus Complete", "Time for a break!");
+    } else {
+      notify("Break Over", "Back to focus!");
+    }
+  });
+
+  tasksStore.registerTaskToggled(() => {
+    progressStore.setTasksCompleted(get(tasksStore.todayCompletedCount));
   });
 
   onMount(async () => {
@@ -39,6 +52,7 @@
       console.warn("[fopomoro] loadConfig failed, using defaults:", e);
     }
     await tasksStore.load();
+    await progressStore.load();
   });
 
   function persistConfig(config: PomodoroConfig) {
@@ -60,7 +74,7 @@
   <Clock />
   <Pomodoro {pomodoro} onConfigSaved={persistConfig} />
   <TaskList store={tasksStore} timerRunning={$pomodoroState.isRunning} />
-  <section class="slot"><span class="section-header">TODAY</span></section>
+  <Progress store={progressStore} />
 
   <div class="opacity-row">
     <span class="section-header">Opacity</span>
@@ -87,7 +101,6 @@
   .title { font-size: 13px; font-weight: 600; color: var(--text); }
   .titlebar-actions { display: flex; align-items: center; gap: 4px; }
   .close { width: 24px; height: 24px; padding: 0; font-size: 11px; }
-  .slot { margin-bottom: 8px; }
   .opacity-row { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
   .opacity-row input[type="range"] { flex: 1; accent-color: var(--accent); }
 </style>

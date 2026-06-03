@@ -1,7 +1,7 @@
-use crate::models::{FoTask, PomodoroConfig, WindowSettings};
+use crate::models::{FoSession, FoTask, PomodoroConfig, WindowSettings};
 use crate::storage;
 use crate::supabase;
-use crate::time_utils::now_rfc3339;
+use crate::time_utils::{now_rfc3339, today_string};
 use crate::AppState;
 use tauri::State;
 use uuid::Uuid;
@@ -29,6 +29,22 @@ pub fn save_settings(settings: WindowSettings, state: State<'_, AppState>) -> Re
 #[tauri::command]
 pub fn set_click_through(enabled: bool, window: tauri::WebviewWindow) -> Result<(), String> {
     window.set_ignore_cursor_events(enabled).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn load_progress(state: State<'_, AppState>) -> Result<FoSession, String> {
+    let mut session: FoSession = storage::read_json(&state.data_dir, "session.json");
+    let today = today_string();
+    if session.date != today {
+        session = FoSession { date: today, ..Default::default() };
+        storage::write_json(&state.data_dir, "session.json", &session)?;
+    }
+    Ok(session)
+}
+
+#[tauri::command]
+pub fn save_progress(session: FoSession, state: State<'_, AppState>) -> Result<(), String> {
+    storage::write_json(&state.data_dir, "session.json", &session)
 }
 
 /// Next FO-NN number = max existing FO-NN + 1 (1 if none).
