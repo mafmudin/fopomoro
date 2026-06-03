@@ -3,8 +3,6 @@ import { api } from "../api";
 
 export function createSettingsStore() {
   const opacity = writable<number>(0.9);
-  // Runtime-only — not persisted; resets to off on each launch (by design).
-  const clickThrough = writable<boolean>(false);
 
   let saveTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -27,21 +25,9 @@ export function createSettingsStore() {
     }, 200); // debounce slider drags
   }
 
-  async function toggleClickThrough() {
-    const next = !get(clickThrough);
-    clickThrough.set(next);
-    try {
-      await api.setClickThrough(next);
-    } catch (e) {
-      console.error("[settings] setClickThrough failed:", e);
-      clickThrough.set(!next); // revert on failure
-    }
-  }
-
   return {
     opacity: { subscribe: opacity.subscribe },
-    clickThrough: { subscribe: clickThrough.subscribe },
-    load, setOpacity, toggleClickThrough,
+    load, setOpacity,
   };
 }
 

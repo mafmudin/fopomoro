@@ -8,8 +8,6 @@ export const api = {
   loadSettings: () => invoke<WindowSettings>("load_settings"),
   saveSettings: (settings: WindowSettings) => invoke<void>("save_settings", { settings }),
 
-  setClickThrough: (enabled: boolean) => invoke<void>("set_click_through", { enabled }),
-
   // Tasks, sessions, and progress:
   getTasks: () => invoke<FoTask[]>("get_tasks"),
   insertTask: (title: string) => invoke<FoTask>("insert_task", { title }),

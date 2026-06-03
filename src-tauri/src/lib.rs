@@ -54,7 +54,6 @@ pub fn run() {
             commands::save_config,
             commands::load_settings,
             commands::save_settings,
-            commands::set_click_through,
             commands::get_tasks,
             commands::insert_task,
             commands::update_task,

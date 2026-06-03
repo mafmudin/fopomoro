@@ -49,7 +49,5 @@ cd src-tauri && cargo test        # Rust storage / mapping
 ## Notes / Known limitations (v1)
 
 - No code signing / notarization (dev-local run).
-- Click-through is toggled from the in-panel ⊙ button; once enabled, the whole
-  window ignores the cursor (including the toggle), so disable it by relaunching.
-  It is not persisted. A global-shortcut or tray toggle is a planned follow-up.
 - Transparency requires `macOSPrivateApi: true` (disables Mac App Store submission).
+- The window is draggable by its title bar ("FoPoMoro"); position is remembered across launches.

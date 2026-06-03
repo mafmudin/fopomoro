@@ -22,7 +22,6 @@
 
   const settings = createSettingsStore();
   const opacity = settings.opacity;
-  const clickThrough = settings.clickThrough;
 
   let panelEl: HTMLElement | undefined = $state();
   let ro: ResizeObserver | undefined;
@@ -97,11 +96,10 @@
   });
 </script>
 
-<main class="panel" class:clickthrough={$clickThrough} bind:this={panelEl} style="opacity: {$opacity}">
+<main class="panel" bind:this={panelEl} style="opacity: {$opacity}">
   <header class="titlebar" data-tauri-drag-region>
-    <span class="title">FoPoMoro</span>
+    <span class="title" data-tauri-drag-region>FoPoMoro</span>
     <div class="titlebar-actions">
-      <button class="icon" class:on={$clickThrough} title="Toggle click-through" onclick={() => settings.toggleClickThrough()}>⊙</button>
       <button class="danger close" title="Close" onclick={() => getCurrentWindow().close()}>✕</button>
     </div>
   </header>
@@ -119,10 +117,6 @@
       oninput={(e) => settings.setOpacity(Number((e.target as HTMLInputElement).value))}
     />
   </div>
-
-  {#if $clickThrough}
-    <div class="ct-banner">Click-through active • relaunch to disable</div>
-  {/if}
 </main>
 
 <style>
@@ -132,17 +126,6 @@
     padding: 14px;
     border-radius: 16px;
     background: var(--panel-bg);
-  }
-  .panel.clickthrough { background: var(--panel-bg-clickthrough); }
-  .ct-banner {
-    margin-top: 10px;
-    background: var(--accent);
-    color: var(--base);
-    border-radius: 8px;
-    padding: 8px 6px;
-    font-size: 10px;
-    font-weight: 600;
-    text-align: center;
   }
   .titlebar {
     display: flex;

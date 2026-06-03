@@ -8,7 +8,6 @@
   --red: #F38BA8;
   --yellow: #F9E2AF;
   --panel-bg: #CC1E1E2E;
-  --panel-bg-clickthrough: #CC0D1B2E;
   --accent-hover: #A6C8FF;
   --accent-press: #6B9CDB;
   --surface-hover: #3D3D52;
@@ -63,7 +62,6 @@ button.icon {
   font-weight: 400;
 }
 button.icon:hover { background: transparent; color: var(--text); }
-button.icon.on { color: var(--accent); }
 
 input[type="text"], input.num {
   box-sizing: border-box;

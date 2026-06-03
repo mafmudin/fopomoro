@@ -27,11 +27,6 @@ pub fn save_settings(settings: WindowSettings, state: State<'_, AppState>) -> Re
 }
 
 #[tauri::command]
-pub fn set_click_through(enabled: bool, window: tauri::WebviewWindow) -> Result<(), String> {
-    window.set_ignore_cursor_events(enabled).map_err(|e| e.to_string())
-}
-
-#[tauri::command]
 pub fn load_progress(state: State<'_, AppState>) -> Result<FoSession, String> {
     let mut session: FoSession = storage::read_json(&state.data_dir, "session.json");
     let today = today_string();
