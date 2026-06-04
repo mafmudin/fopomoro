@@ -71,6 +71,18 @@ jobs:
         with:
           tagName: v__VERSION__ # __VERSION__ ← bumped src-tauri/tauri.conf.json
           releaseName: "FoPoMoro v__VERSION__"
-          releaseBody: "Automated macOS build (.dmg). Unsigned — on first launch, right-click the app → Open."
+          releaseBody: |
+            Automated macOS build (.dmg). Ad-hoc signed, **not** notarized (no Apple Developer account).
+
+            **First launch — macOS will block it (Gatekeeper).** This is expected for non-notarized apps. To open:
+
+            1. Drag **FoPoMoro.app** from the .dmg into **Applications**.
+            2. Run in Terminal:
+               ```
+               xattr -cr /Applications/FoPoMoro.app
+               ```
+            3. Open the app normally.
+
+            (Alternatively, right-click the app → **Open**, then **Open** again — but on macOS 15+/Tahoe this often no longer works for the "damaged" message, so the `xattr` command above is the reliable path.)
           releaseDraft: false
           prerelease: false
