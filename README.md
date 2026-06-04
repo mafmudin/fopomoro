@@ -51,3 +51,7 @@ cd src-tauri && cargo test        # Rust storage / mapping
 - No code signing / notarization (dev-local run).
 - Transparency requires `macOSPrivateApi: true` (disables Mac App Store submission).
 - The window is draggable by its title bar ("FoPoMoro"); position is remembered across launches.
+
+## License
+
+Released under the [MIT License](LICENSE).
