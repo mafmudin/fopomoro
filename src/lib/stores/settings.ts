@@ -1,8 +1,11 @@
 import { writable, get } from "svelte/store";
 import { api } from "../api";
 
+const DEFAULT_BG = "#1E1E2E";
+
 export function createSettingsStore() {
   const opacity = writable<number>(0.9);
+  const bgColor = writable<string>(DEFAULT_BG);
 
   let saveTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -10,24 +13,37 @@ export function createSettingsStore() {
     try {
       const s = await api.loadSettings();
       opacity.set(s.opacity);
+      bgColor.set(s.bg_color ?? DEFAULT_BG);
     } catch (e) {
       console.error("[settings] load failed:", e);
     }
   }
 
-  function setOpacity(value: number) {
-    opacity.set(value);
+  // Both controls persist the whole settings object together, debounced so
+  // slider drags and color-picker scrubbing don't spam the backend.
+  function scheduleSave() {
     if (saveTimer) clearTimeout(saveTimer);
     saveTimer = setTimeout(() => {
-      api.saveSettings({ opacity: get(opacity) }).catch((e) =>
+      api.saveSettings({ opacity: get(opacity), bg_color: get(bgColor) }).catch((e) =>
         console.error("[settings] save failed:", e)
       );
-    }, 200); // debounce slider drags
+    }, 200);
+  }
+
+  function setOpacity(value: number) {
+    opacity.set(value);
+    scheduleSave();
+  }
+
+  function setBgColor(value: string) {
+    bgColor.set(value);
+    scheduleSave();
   }
 
   return {
     opacity: { subscribe: opacity.subscribe },
-    load, setOpacity,
+    bgColor: { subscribe: bgColor.subscribe },
+    load, setOpacity, setBgColor,
   };
 }
 

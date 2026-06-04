@@ -13,6 +13,7 @@
   import { playChime } from "./lib/sound";
   import { notify } from "./lib/notify";
   import { api } from "./lib/api";
+  import { textColorsFor } from "./lib/contrast";
   import type { PomodoroConfig } from "./lib/types";
 
   const pomodoro = createPomodoro({ focus_minutes: 25, short_break_minutes: 5, long_break_minutes: 15 });
@@ -22,6 +23,12 @@
 
   const settings = createSettingsStore();
   const opacity = settings.opacity;
+  const bgColor = settings.bgColor;
+
+  // Curated dark Catppuccin swatches; the color picker covers anything else.
+  const PRESET_BGS = ["#1E1E2E", "#181825", "#11111B", "#24273A", "#303446"];
+  // Text flips to stay readable on whatever background is picked.
+  const textColors = $derived(textColorsFor($bgColor));
 
   let panelEl: HTMLElement | undefined = $state();
   let ro: ResizeObserver | undefined;
@@ -96,7 +103,11 @@
   });
 </script>
 
-<main class="panel" bind:this={panelEl} style="opacity: {$opacity}">
+<main
+  class="panel"
+  bind:this={panelEl}
+  style="--panel-bg:{$bgColor}; --text:{textColors.text}; --subtext:{textColors.subtext}; opacity:{$opacity}"
+>
   <header class="titlebar" data-tauri-drag-region>
     <span class="title" data-tauri-drag-region>FoPoMoro</span>
     <div class="titlebar-actions">
@@ -108,6 +119,30 @@
   <Pomodoro {pomodoro} onConfigSaved={persistConfig} />
   <TaskList store={tasksStore} timerRunning={$pomodoroState.isRunning} />
   <Progress store={progressStore} />
+
+  <div class="bg-row">
+    <span class="section-header">Background</span>
+    <div class="swatches">
+      {#each PRESET_BGS as preset}
+        <button
+          class="swatch"
+          class:active={$bgColor.toLowerCase() === preset.toLowerCase()}
+          style="background: {preset}"
+          title={preset}
+          aria-label={`Set background ${preset}`}
+          onclick={() => settings.setBgColor(preset)}
+        ></button>
+      {/each}
+      <input
+        class="color-picker"
+        type="color"
+        value={$bgColor}
+        oninput={(e) => settings.setBgColor((e.target as HTMLInputElement).value)}
+        title="Custom color"
+        aria-label="Custom background color"
+      />
+    </div>
+  </div>
 
   <div class="opacity-row">
     <span class="section-header">Opacity</span>
@@ -140,4 +175,27 @@
   .close { width: 24px; height: 24px; padding: 0; font-size: 11px; }
   .opacity-row { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
   .opacity-row input[type="range"] { flex: 1; accent-color: var(--accent); }
+
+  .bg-row { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+  .swatches { display: flex; align-items: center; gap: 6px; flex: 1; }
+  .swatch {
+    width: 18px;
+    height: 18px;
+    padding: 0;
+    border-radius: 4px;
+    border: 2px solid transparent;
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.12) inset;
+  }
+  .swatch.active { border-color: var(--accent); }
+  .color-picker {
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    border: none;
+    border-radius: 4px;
+    background: none;
+    cursor: pointer;
+  }
+  .color-picker::-webkit-color-swatch-wrapper { padding: 0; }
+  .color-picker::-webkit-color-swatch { border: none; border-radius: 4px; }
 </style>

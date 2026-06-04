@@ -7,7 +7,7 @@
   --green: #A6E3A1;
   --red: #F38BA8;
   --yellow: #F9E2AF;
-  --panel-bg: #CC1E1E2E;
+  --panel-bg: #1E1E2E; /* solid fallback; runtime value comes from settings. Slider opacity is the sole translucency control. */
   --accent-hover: #A6C8FF;
   --accent-press: #6B9CDB;
   --surface-hover: #3D3D52;

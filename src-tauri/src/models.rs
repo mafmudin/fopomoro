@@ -46,10 +46,18 @@ impl Default for PomodoroConfig {
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct WindowSettings {
     pub opacity: f64,
+    // `serde(default)` keeps older settings.json (opacity-only) readable so the
+    // saved opacity isn't lost when upgrading to a build that has bg_color.
+    #[serde(default = "default_bg_color")]
+    pub bg_color: String,
+}
+
+fn default_bg_color() -> String {
+    "#1E1E2E".to_string()
 }
 
 impl Default for WindowSettings {
     fn default() -> Self {
-        Self { opacity: 0.9 }
+        Self { opacity: 0.9, bg_color: default_bg_color() }
     }
 }

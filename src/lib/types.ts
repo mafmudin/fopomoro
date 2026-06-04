@@ -23,4 +23,5 @@ export interface PomodoroConfig {
 
 export interface WindowSettings {
   opacity: number;
+  bg_color: string;
 }
