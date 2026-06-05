@@ -39,6 +39,17 @@ npm run tauri dev
 npm run tauri build   # produces a .app / .dmg under src-tauri/target/release/bundle
 ```
 
+### Release (CI)
+
+A GitHub Actions workflow (`.github/workflows/release.yml`) publishes releases.
+Trigger it manually: **Actions → Release → Run workflow**, then pick a version
+bump (patch/minor/major). It bumps the version, commits it to `main`, then builds
+**macOS (.dmg)** and **Windows (.msi/.exe)** in parallel and attaches both to one
+tagged GitHub Release. Supabase creds come from the `SUPABASE` GitHub Environment
+secrets and are baked into the binary at compile time.
+
+> After a CI release, run `git pull` — the workflow commits a version bump to `main`.
+
 ## Test
 
 ```bash
@@ -48,8 +59,8 @@ cd src-tauri && cargo test        # Rust storage / mapping
 
 ## Notes / Known limitations (v1)
 
-- No code signing / notarization (dev-local run).
-- Transparency requires `macOSPrivateApi: true` (disables Mac App Store submission).
+- No code signing / notarization. macOS: ad-hoc signed → on first launch run `xattr -cr /Applications/FoPoMoro.app`. Windows: unsigned → SmartScreen "More info → Run anyway".
+- Transparency requires `macOSPrivateApi: true` (disables Mac App Store submission). Windows uses WebView2 — the transparent/rounded overlay may render less cleanly than macOS, so verify the Windows build before relying on it.
 - The window is draggable by its title bar ("FoPoMoro"); position is remembered across launches.
 
 ## License
