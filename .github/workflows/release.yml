@@ -26,12 +26,12 @@ jobs:
       version: ${{ steps.bump.outputs.version }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
-          node-version: 20
+          node-version: 22
 
       - name: Bump version & commit
         id: bump
@@ -63,14 +63,14 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout (bumped main)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           ref: main # get the version-bump commit pushed by `prepare`
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
-          node-version: 20
+          node-version: 22
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
