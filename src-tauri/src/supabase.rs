@@ -4,8 +4,9 @@ use crate::models::FoTask;
 
 #[derive(Clone, Debug)]
 pub struct SupabaseConfig {
-    pub base_url: String,
-    pub key: String,
+    pub base_url: String, // {project}/rest/v1 — PostgREST data API
+    pub auth_url: String, // {project}/auth/v1 — GoTrue auth API
+    pub key: String,      // anon key (used as `apikey` header; NOT for data RLS)
 }
 
 impl SupabaseConfig {
@@ -15,8 +16,10 @@ impl SupabaseConfig {
         // GitHub secrets so the distributed bundle can sync without a local .env.
         let url = read_secret("SUPABASE_URL", option_env!("SUPABASE_URL"))?;
         let key = read_secret("SUPABASE_ANON_KEY", option_env!("SUPABASE_ANON_KEY"))?;
+        let root = url.trim_end_matches('/');
         Some(Self {
-            base_url: format!("{}/rest/v1", url.trim_end_matches('/')),
+            base_url: format!("{}/rest/v1", root),
+            auth_url: format!("{}/auth/v1", root),
             key,
         })
     }
@@ -55,18 +58,22 @@ impl From<TaskRecord> for FoTask {
     }
 }
 
-fn auth(req: reqwest::RequestBuilder, cfg: &SupabaseConfig) -> reqwest::RequestBuilder {
+// Data calls authenticate as the signed-in USER (Bearer = their access token).
+// RLS keys off this JWT — the anon `apikey` alone grants no row access. `token`
+// is always a user access token here (these fns only run when signed in).
+fn auth(req: reqwest::RequestBuilder, cfg: &SupabaseConfig, token: &str) -> reqwest::RequestBuilder {
     req.header("apikey", &cfg.key)
-        .header("Authorization", format!("Bearer {}", cfg.key))
+        .header("Authorization", format!("Bearer {}", token))
         .header("Content-Type", "application/json")
 }
 
 pub async fn get_tasks(
     http: &reqwest::Client,
     cfg: &SupabaseConfig,
+    token: &str,
 ) -> Result<Vec<FoTask>, String> {
     let url = format!("{}/tasks?select=*&order=task_number.asc", cfg.base_url);
-    let resp = auth(http.get(&url), cfg).send().await.map_err(|e| e.to_string())?;
+    let resp = auth(http.get(&url), cfg, token).send().await.map_err(|e| e.to_string())?;
     let resp = resp.error_for_status().map_err(|e| e.to_string())?;
     let records: Vec<TaskRecord> = resp.json().await.map_err(|e| e.to_string())?;
     Ok(records.into_iter().map(FoTask::from).collect())
@@ -75,8 +82,11 @@ pub async fn get_tasks(
 pub async fn insert_task(
     http: &reqwest::Client,
     cfg: &SupabaseConfig,
+    token: &str,
     task: &FoTask,
 ) -> Result<FoTask, String> {
+    // Omit user_id (DB default = auth.uid()) and task_number (DB trigger assigns
+    // it per-user) — the server is authoritative for both.
     let url = format!("{}/tasks", cfg.base_url);
     let body = serde_json::json!({
         "title": task.title,
@@ -85,7 +95,7 @@ pub async fn insert_task(
         "completed_at": task.completed_at,
         "pomodoro_count": task.pomodoro_count,
     });
-    let resp = auth(http.post(&url), cfg)
+    let resp = auth(http.post(&url), cfg, token)
         .header("Prefer", "return=representation")
         .json(&body)
         .send().await.map_err(|e| e.to_string())?;
@@ -97,6 +107,7 @@ pub async fn insert_task(
 pub async fn update_task(
     http: &reqwest::Client,
     cfg: &SupabaseConfig,
+    token: &str,
     task: &FoTask,
 ) -> Result<(), String> {
     let url = format!("{}/tasks?id=eq.{}", cfg.base_url, task.id);
@@ -106,7 +117,7 @@ pub async fn update_task(
         "completed_at": task.completed_at,
         "pomodoro_count": task.pomodoro_count,
     });
-    let resp = auth(http.patch(&url), cfg).json(&body).send().await.map_err(|e| e.to_string())?;
+    let resp = auth(http.patch(&url), cfg, token).json(&body).send().await.map_err(|e| e.to_string())?;
     resp.error_for_status().map_err(|e| e.to_string())?;
     Ok(())
 }
@@ -114,10 +125,11 @@ pub async fn update_task(
 pub async fn delete_task(
     http: &reqwest::Client,
     cfg: &SupabaseConfig,
+    token: &str,
     id: &str,
 ) -> Result<(), String> {
     let url = format!("{}/tasks?id=eq.{}", cfg.base_url, id);
-    let resp = auth(http.delete(&url), cfg).send().await.map_err(|e| e.to_string())?;
+    let resp = auth(http.delete(&url), cfg, token).send().await.map_err(|e| e.to_string())?;
     resp.error_for_status().map_err(|e| e.to_string())?;
     Ok(())
 }
@@ -125,6 +137,7 @@ pub async fn delete_task(
 pub async fn insert_session(
     http: &reqwest::Client,
     cfg: &SupabaseConfig,
+    token: &str,
     task_id: Option<&str>,
     duration_minutes: i32,
     was_focused: bool,
@@ -135,7 +148,7 @@ pub async fn insert_session(
         "duration_minutes": duration_minutes,
         "was_focused": was_focused,
     });
-    let resp = auth(http.post(&url), cfg).json(&body).send().await.map_err(|e| e.to_string())?;
+    let resp = auth(http.post(&url), cfg, token).json(&body).send().await.map_err(|e| e.to_string())?;
     resp.error_for_status().map_err(|e| e.to_string())?;
     Ok(())
 }

@@ -5,6 +5,7 @@
   import Pomodoro from "./lib/components/Pomodoro.svelte";
   import TaskList from "./lib/components/TaskList.svelte";
   import Progress from "./lib/components/Progress.svelte";
+  import Account from "./lib/components/Account.svelte";
   import { createPomodoro } from "./lib/stores/timer";
   import { createTasksStore } from "./lib/stores/tasks";
   import { createProgressStore } from "./lib/stores/progress";
@@ -97,6 +98,13 @@
     api.saveConfig(config).catch((e) => console.warn("[fopomoro] saveConfig failed:", e));
   }
 
+  // After sign-in/out the backend reconciles the local mirror with the cloud,
+  // so re-pull tasks (and progress) to reflect the new source of truth.
+  async function reloadAfterAuth() {
+    await tasksStore.load();
+    await progressStore.load();
+  }
+
   onDestroy(() => {
     pomodoro.dispose();
     ro?.disconnect();
@@ -152,6 +160,8 @@
       oninput={(e) => settings.setOpacity(Number((e.target as HTMLInputElement).value))}
     />
   </div>
+
+  <Account onAuthChanged={reloadAfterAuth} />
 </main>
 
 <style>

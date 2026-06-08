@@ -1,3 +1,4 @@
+use crate::auth;
 use crate::models::{FoSession, FoTask, PomodoroConfig, WindowSettings};
 use crate::storage;
 use crate::supabase;
@@ -58,10 +59,9 @@ pub fn next_task_number(tasks: &[FoTask]) -> i32 {
 #[tauri::command]
 pub async fn get_tasks(state: State<'_, AppState>) -> Result<Vec<FoTask>, String> {
     let dir = state.data_dir.clone();
-    let cfg = state.supabase.clone();
-    let http = state.http.clone();
-    if let Some(cfg) = cfg {
-        match supabase::get_tasks(&http, &cfg).await {
+    // Cloud only when signed in; otherwise read the local mirror.
+    if let Some((cfg, token)) = auth::active_session(state.inner()).await {
+        match supabase::get_tasks(&state.http, &cfg, &token).await {
             Ok(tasks) => {
                 let _ = storage::write_json(&dir, "tasks.json", &tasks);
                 return Ok(tasks);
@@ -75,8 +75,6 @@ pub async fn get_tasks(state: State<'_, AppState>) -> Result<Vec<FoTask>, String
 #[tauri::command]
 pub async fn insert_task(title: String, state: State<'_, AppState>) -> Result<FoTask, String> {
     let dir = state.data_dir.clone();
-    let cfg = state.supabase.clone();
-    let http = state.http.clone();
 
     let mut tasks: Vec<FoTask> = storage::read_json(&dir, "tasks.json");
     let n = next_task_number(&tasks);
@@ -89,8 +87,8 @@ pub async fn insert_task(title: String, state: State<'_, AppState>) -> Result<Fo
         completed_at: None,
         pomodoro_count: 0,
     };
-    if let Some(cfg) = cfg {
-        match supabase::insert_task(&http, &cfg, &task).await {
+    if let Some((cfg, token)) = auth::active_session(state.inner()).await {
+        match supabase::insert_task(&state.http, &cfg, &token, &task).await {
             Ok(saved) => task = saved, // adopt DB id + task_number
             Err(e) => eprintln!("[supabase] insert_task failed: {e}"),
         }
@@ -107,11 +105,9 @@ pub async fn insert_task(title: String, state: State<'_, AppState>) -> Result<Fo
 #[tauri::command]
 pub async fn update_task(task: FoTask, state: State<'_, AppState>) -> Result<(), String> {
     let dir = state.data_dir.clone();
-    let cfg = state.supabase.clone();
-    let http = state.http.clone();
 
-    if let Some(cfg) = cfg {
-        if let Err(e) = supabase::update_task(&http, &cfg, &task).await {
+    if let Some((cfg, token)) = auth::active_session(state.inner()).await {
+        if let Err(e) = supabase::update_task(&state.http, &cfg, &token, &task).await {
             eprintln!("[supabase] update_task failed: {e}");
         }
     }
@@ -125,11 +121,9 @@ pub async fn update_task(task: FoTask, state: State<'_, AppState>) -> Result<(),
 #[tauri::command]
 pub async fn delete_task(id: String, state: State<'_, AppState>) -> Result<(), String> {
     let dir = state.data_dir.clone();
-    let cfg = state.supabase.clone();
-    let http = state.http.clone();
 
-    if let Some(cfg) = cfg {
-        if let Err(e) = supabase::delete_task(&http, &cfg, &id).await {
+    if let Some((cfg, token)) = auth::active_session(state.inner()).await {
+        if let Err(e) = supabase::delete_task(&state.http, &cfg, &token, &id).await {
             eprintln!("[supabase] delete_task failed: {e}");
         }
     }
@@ -145,10 +139,8 @@ pub async fn record_session(
     was_focused: bool,
     state: State<'_, AppState>,
 ) -> Result<(), String> {
-    let cfg = state.supabase.clone();
-    let http = state.http.clone();
-    if let Some(cfg) = cfg {
-        if let Err(e) = supabase::insert_session(&http, &cfg, task_id.as_deref(), duration_minutes, was_focused).await {
+    if let Some((cfg, token)) = auth::active_session(state.inner()).await {
+        if let Err(e) = supabase::insert_session(&state.http, &cfg, &token, task_id.as_deref(), duration_minutes, was_focused).await {
             eprintln!("[supabase] record_session failed: {e}");
         }
     }

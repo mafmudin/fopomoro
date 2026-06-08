@@ -25,3 +25,8 @@ export interface WindowSettings {
   opacity: number;
   bg_color: string;
 }
+
+export interface AuthStatus {
+  signed_in: boolean;
+  email: string | null;
+}

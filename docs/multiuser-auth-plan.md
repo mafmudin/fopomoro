@@ -99,6 +99,69 @@ Supabase yang sudah ada), via endpoint GoTrue REST:
 - Data anonymous-era akan dibuang (Tahap 0.3); pastikan tak ada data penting di
   sana sebelum hapus.
 
+## Status implementasi (live)
+
+| Tahap | Status | Catatan |
+|-------|--------|---------|
+| 0 — DB & RLS | ✅ applied | `supabase/migrations/0001_per_user_isolation.sql` sudah di-run user |
+| 1 — Auth core | ✅ kode | `src-tauri/src/auth.rs` (OTP, session store, refresh) |
+| 2 — Gating cloud/local | ✅ kode | `commands.rs` lewat `auth::active_session`; data calls pakai user JWT |
+| 3 — Migrasi login | ✅ kode | `src-tauri/src/sync.rs` (smart-merge: server-empty→push, else adopt) |
+| 4 — UI | ✅ kode + ✅ frontend check | `Account.svelte`; `npm run check` 0 error, 24/24 test lulus |
+| 5 — Verifikasi | ⬜ butuh build Rust + run | checklist di bawah |
+
+> ⚠️ Sisi **Rust belum di-compile** (tak ada toolchain di WSL). Build via
+> Rider/RustRover di Windows dulu sebelum verifikasi.
+>
+> 📋 **Review statis pra-build (2026-06-08):** seluruh kode Rust + kontrak
+> lintas-batas (DB↔Rust↔frontend) diperiksa manual. Tidak ditemukan masalah
+> compile/logika. Yang dikonfirmasi lolos: tak ada `MutexGuard` nyangkut lintas
+> `.await` (jebakan async Tauri); Cargo deps cocok dengan fitur yang dipakai;
+> `task_number` diisi trigger (Rust tak kirim); `user_id` default `auth.uid()`;
+> `pomodoro_sessions.task_id` menerima UUID `task.id` dari frontend (bukan
+> `FO-NN`); RLS `to authenticated` saja → anon ditolak (sesuai verif. step 5);
+> refresh-gagal/offline fallback ke `tasks.json` tanpa clobber. **Aman dibuild.**
+
+### Prasyarat verifikasi
+- Build Rust sukses (`cargo build` / Rider).
+- Supabase: Authentication → Providers → **Email enabled**, template OTP memuat
+  `{{ .Token }}` (kode 6 digit, bukan hanya magic link).
+
+### Checklist verifikasi (Tahap 5)
+1. **Mode lokal (signed out):** jalankan app tanpa login → tambah/hapus task →
+   pastikan jalan & tidak ada call ke Supabase (cek tabel tetap kosong).
+2. **Login OTP:** Sign in to sync → masukkan email → tempel kode → "● synced".
+3. **Smart-merge:** task lokal yang dibuat sebelum login muncul di cloud (cek
+   tabel `tasks` → kolom `user_id` terisi).
+4. **Isolasi 2 akun:** login akun B di instance/profil lain → task akun A TIDAK
+   terlihat; sebaliknya juga.
+5. **RLS langsung:** coba `GET /rest/v1/tasks` pakai anon key saja (tanpa JWT) →
+   harus kosong/forbidden, bukan membocorkan data.
+6. **Sign out:** kembali "local only"; salinan task lokal tetap ada.
+7. **Persistensi:** restart app saat signed-in → tetap signed-in (session
+   ke-load dari `auth_session.json`).
+
+## Bug ditemukan saat verifikasi (2026-06-08) — FIXED
+
+**Gejala:** login A → sign out → login B (akun baru), task A "ke-replicate" jadi
+milik B (uuid baru, `task_number` baru per-user).
+
+**Akar:** `sign_out` mempertahankan `tasks.json` (by design). Saat login B yang
+cloud-nya kosong, `reconcile_on_login` masuk cabang *"cloud empty → push local"*
+dan mengunggah isi mirror (yang masih milik A) ke akun B.
+
+**Fix:** mirror lokal kini ditandai pemilik (`sync_owner.json` = `user_id`).
+Cabang push hanya jalan bila mirror milik user yang sama atau anonim (belum
+pernah login); kalau milik akun lain → mirror dibuang, tidak di-push. Tidak
+mengubah perilaku "local copy preserved". File: `sync.rs`, `auth.rs`.
+
+**Lanjutan — hapus mirror saat sign-out (diputuskan & FIXED):** untuk menutup
+sisa lubang privasi (di mesin bersama task A tetap tampil di mode lokal setelah
+sign-out), `auth_sign_out` kini menghapus `tasks.json` + `sync_owner.json`. Task
+user cloud bersifat canonical di server & ditarik ulang saat login berikutnya.
+Trade-off: tak ada tampilan offline atas task cloud setelah sign-out sampai login
+lagi (online). File: `auth.rs`.
+
 ## Referensi
 
 - Supabase Auth — Email OTP: https://supabase.com/docs/guides/auth/auth-email-passwordless

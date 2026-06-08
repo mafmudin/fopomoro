@@ -1,10 +1,13 @@
+mod auth;
 mod models;
 mod storage;
 mod supabase;
+mod sync;
 mod commands;
 mod time_utils;
 
 use std::path::PathBuf;
+use std::sync::Mutex;
 use tauri::Manager;
 use tauri_plugin_window_state::StateFlags;
 
@@ -12,6 +15,9 @@ pub struct AppState {
     pub data_dir: PathBuf,
     pub supabase: Option<supabase::SupabaseConfig>,
     pub http: reqwest::Client,
+    // Some(..) once the user signs in via Email OTP. Cloud sync is gated on this:
+    // None ⇒ purely local. Persisted to disk and reloaded on startup.
+    pub auth: Mutex<Option<auth::Session>>,
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -42,10 +48,15 @@ pub fn run() {
                 .build()
                 .expect("failed to build HTTP client");
 
+            // Restore a prior sign-in (if any). The access token may be stale; it
+            // is refreshed lazily before the first cloud call (Tahap 2).
+            let session = auth::load_session(&data_dir);
+
             app.manage(AppState {
                 data_dir,
                 supabase,
                 http,
+                auth: Mutex::new(session),
             });
             Ok(())
         })
@@ -61,6 +72,10 @@ pub fn run() {
             commands::record_session,
             commands::load_progress,
             commands::save_progress,
+            auth::auth_request_otp,
+            auth::auth_verify_otp,
+            auth::auth_status,
+            auth::auth_sign_out,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
