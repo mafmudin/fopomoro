@@ -99,6 +99,39 @@ Supabase yang sudah ada), via endpoint GoTrue REST:
 - Data anonymous-era akan dibuang (Tahap 0.3); pastikan tak ada data penting di
   sana sebelum hapus.
 
+## Status implementasi (live)
+
+| Tahap | Status | Catatan |
+|-------|--------|---------|
+| 0 — DB & RLS | ✅ applied | `supabase/migrations/0001_per_user_isolation.sql` sudah di-run user |
+| 1 — Auth core | ✅ kode | `src-tauri/src/auth.rs` (OTP, session store, refresh) |
+| 2 — Gating cloud/local | ✅ kode | `commands.rs` lewat `auth::active_session`; data calls pakai user JWT |
+| 3 — Migrasi login | ✅ kode | `src-tauri/src/sync.rs` (smart-merge: server-empty→push, else adopt) |
+| 4 — UI | ✅ kode + ✅ frontend check | `Account.svelte`; `npm run check` 0 error, 24/24 test lulus |
+| 5 — Verifikasi | ⬜ butuh build Rust + run | checklist di bawah |
+
+> ⚠️ Sisi **Rust belum di-compile** (tak ada toolchain di WSL). Build via
+> Rider/RustRover di Windows dulu sebelum verifikasi.
+
+### Prasyarat verifikasi
+- Build Rust sukses (`cargo build` / Rider).
+- Supabase: Authentication → Providers → **Email enabled**, template OTP memuat
+  `{{ .Token }}` (kode 6 digit, bukan hanya magic link).
+
+### Checklist verifikasi (Tahap 5)
+1. **Mode lokal (signed out):** jalankan app tanpa login → tambah/hapus task →
+   pastikan jalan & tidak ada call ke Supabase (cek tabel tetap kosong).
+2. **Login OTP:** Sign in to sync → masukkan email → tempel kode → "● synced".
+3. **Smart-merge:** task lokal yang dibuat sebelum login muncul di cloud (cek
+   tabel `tasks` → kolom `user_id` terisi).
+4. **Isolasi 2 akun:** login akun B di instance/profil lain → task akun A TIDAK
+   terlihat; sebaliknya juga.
+5. **RLS langsung:** coba `GET /rest/v1/tasks` pakai anon key saja (tanpa JWT) →
+   harus kosong/forbidden, bukan membocorkan data.
+6. **Sign out:** kembali "local only"; salinan task lokal tetap ada.
+7. **Persistensi:** restart app saat signed-in → tetap signed-in (session
+   ke-load dari `auth_session.json`).
+
 ## Referensi
 
 - Supabase Auth — Email OTP: https://supabase.com/docs/guides/auth/auth-email-passwordless

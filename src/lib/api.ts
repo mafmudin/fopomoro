@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { FoTask, FoSession, PomodoroConfig, WindowSettings } from "./types";
+import type { AuthStatus, FoTask, FoSession, PomodoroConfig, WindowSettings } from "./types";
 
 export const api = {
   loadConfig: () => invoke<PomodoroConfig>("load_config"),
@@ -17,4 +17,11 @@ export const api = {
     invoke<void>("record_session", { taskId, durationMinutes, wasFocused }),
   loadProgress: () => invoke<FoSession>("load_progress"),
   saveProgress: (session: FoSession) => invoke<void>("save_progress", { session }),
+
+  // Auth (Email OTP). Cloud sync is opt-in: signed out ⇒ everything stays local.
+  authStatus: () => invoke<AuthStatus>("auth_status"),
+  authRequestOtp: (email: string) => invoke<void>("auth_request_otp", { email }),
+  authVerifyOtp: (email: string, code: string) =>
+    invoke<AuthStatus>("auth_verify_otp", { email, code }),
+  authSignOut: () => invoke<void>("auth_sign_out"),
 };
