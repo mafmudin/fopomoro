@@ -1,0 +1,27 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:v2.tauri.app)",
+      "WebFetch(domain:about.signpath.io)",
+      "WebFetch(domain:docs.signpath.io)",
+      "Bash(node -p \"require\\('./package.json'\\).license\")",
+      "Bash(node -e \"const c=require\\('./src-tauri/tauri.conf.json'\\); console.log\\(JSON.stringify\\({productName:c.productName, identifier:c.identifier, version:c.version, bundle:c.bundle}, null, 2\\)\\)\")",
+      "WebSearch",
+      "Bash([ -f \"$f\" ])",
+      "Bash(cargo check *)",
+      "Bash(command -v cargo)",
+      "Read(//home/nine/.cargo/**)",
+      "Bash([ -f \"$HOME/.cargo/env\" ])",
+      "Read(//mnt/c/Users/anemon/**)",
+      "Bash(command -v cargo.exe)",
+      "Read(//mnt/c/Users/anemon/.cargo/bin/**)",
+      "Bash(command -v node)",
+      "Bash(command -v npm)",
+      "Bash(node -p \"Object.keys\\(require\\('./package.json'\\).scripts||{}\\).join\\(', '\\)\")",
+      "Bash(npm run *)",
+      "Read(//home/nine/**)",
+      "Read(//mnt/wsl/**)",
+      "Read(//etc/**)"
+    ]
+  }
+}

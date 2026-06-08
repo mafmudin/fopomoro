@@ -43,7 +43,7 @@
   async function verify() {
     error = "";
     if (!code.trim()) {
-      error = "Enter the 6-digit code";
+      error = "Enter the code from your email";
       return;
     }
     busy = true;
@@ -121,7 +121,7 @@
       <input
         type="text"
         inputmode="numeric"
-        placeholder="6-digit code"
+        placeholder="Verification code"
         value={code}
         oninput={(e) => (code = (e.target as HTMLInputElement).value)}
         onkeydown={(e) => e.key === "Enter" && verify()}

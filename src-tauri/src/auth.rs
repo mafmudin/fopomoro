@@ -216,12 +216,13 @@ pub async fn auth_verify_otp(
     save_session(&state.data_dir, &session)?;
     let token = session.access_token.clone();
     let email = session.email.clone();
+    let user_id = session.user_id.clone();
     *state.auth.lock().unwrap() = Some(session);
 
     // Smart-merge local ↔ cloud now that we're signed in (Tahap 3). Non-fatal:
     // a failure here still leaves the user signed in.
     if let Err(e) =
-        crate::sync::reconcile_on_login(&state.http, &cfg, &token, &state.data_dir).await
+        crate::sync::reconcile_on_login(&state.http, &cfg, &token, &user_id, &state.data_dir).await
     {
         eprintln!("[sync] reconcile after login failed: {e}");
     }
@@ -239,10 +240,18 @@ pub fn auth_status(state: State<'_, AppState>) -> AuthStatus {
 
 #[tauri::command]
 pub async fn auth_sign_out(state: State<'_, AppState>) -> Result<(), String> {
-    // Drop the session locally regardless of whether the server logout succeeds;
-    // the local copy of tasks is preserved (we revert to local-only mode).
+    // Drop the session locally regardless of whether the server logout succeeds.
     let token = state.auth.lock().unwrap().take();
     clear_session_file(&state.data_dir);
+
+    // Wipe the local cloud mirror on sign-out: the signed-in user's tasks live in
+    // the cloud (canonical) and are re-fetched on the next login. Clearing avoids
+    // leaving one account's tasks visible in local mode on a shared machine, and
+    // keeps the local-vs-cloud boundary clean (the mirror is owned by the session,
+    // not persisted past it). Trade-off: no offline view of cloud tasks after
+    // sign-out until you sign back in (online). See docs/multiuser-auth-plan.md.
+    let _ = fs::remove_file(state.data_dir.join("tasks.json"));
+    let _ = fs::remove_file(state.data_dir.join("sync_owner.json"));
 
     if let (Some(session), Some(cfg)) = (token, state.supabase.clone()) {
         let _ = state
