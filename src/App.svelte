@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount, onDestroy } from "svelte";
   import { getCurrentWindow, LogicalSize } from "@tauri-apps/api/window";
+  import { enable as enableAutostart, disable as disableAutostart, isEnabled as isAutostartEnabled } from "@tauri-apps/plugin-autostart";
   import Clock from "./lib/components/Clock.svelte";
   import Pomodoro from "./lib/components/Pomodoro.svelte";
   import TaskList from "./lib/components/TaskList.svelte";
@@ -33,6 +34,22 @@
 
   let panelEl: HTMLElement | undefined = $state();
   let ro: ResizeObserver | undefined;
+
+  // "Run at startup" — source of truth is the OS (registry/LaunchAgent), read via
+  // the autostart plugin; we mirror it into this state for the toggle.
+  let autostartOn = $state(false);
+
+  async function toggleAutostart(on: boolean) {
+    autostartOn = on; // optimistic
+    try {
+      if (on) await enableAutostart();
+      else await disableAutostart();
+      autostartOn = await isAutostartEnabled(); // reconcile with OS truth
+    } catch (e) {
+      console.warn("[fopomoro] autostart toggle failed:", e);
+      autostartOn = await isAutostartEnabled().catch(() => false);
+    }
+  }
 
   // The timer's running state has two consumers: this effect drives the tasks
   // store's lock guards, and `timerRunning` is also passed to <TaskList> as a
@@ -71,6 +88,11 @@
     await progressStore.load();
 
     await settings.load();
+    try {
+      autostartOn = await isAutostartEnabled();
+    } catch (e) {
+      console.warn("[fopomoro] isAutostartEnabled failed:", e);
+    }
     // Show on all Spaces / above fullscreen apps.
     try {
       await getCurrentWindow().setVisibleOnAllWorkspaces(true);
@@ -161,6 +183,16 @@
     />
   </div>
 
+  <div class="startup-row">
+    <span class="section-header">Run at startup</span>
+    <input
+      type="checkbox"
+      checked={autostartOn}
+      onchange={(e) => toggleAutostart((e.target as HTMLInputElement).checked)}
+      aria-label="Run FoPoMoro at login"
+    />
+  </div>
+
   <Account onAuthChanged={reloadAfterAuth} />
 </main>
 
@@ -185,6 +217,9 @@
   .close { width: 24px; height: 24px; padding: 0; font-size: 11px; }
   .opacity-row { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
   .opacity-row input[type="range"] { flex: 1; accent-color: var(--accent); }
+
+  .startup-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 8px; }
+  .startup-row input[type="checkbox"] { accent-color: var(--accent); cursor: pointer; }
 
   .bg-row { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
   .swatches { display: flex; align-items: center; gap: 6px; flex: 1; }

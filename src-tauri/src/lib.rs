@@ -27,6 +27,12 @@ pub fn run() {
 
     tauri::Builder::default()
         .plugin(tauri_plugin_notification::init())
+        // Launch at login (opt-in via the Settings toggle). LaunchAgent on macOS,
+        // registry Run key on Windows. No extra CLI args on autostart.
+        .plugin(tauri_plugin_autostart::init(
+            tauri_plugin_autostart::MacosLauncher::LaunchAgent,
+            None,
+        ))
         // Only remember WHERE the overlay was dragged; size is content-driven
         // (the frontend ResizeObserver is the authoritative sizer).
         .plugin(
