@@ -16,6 +16,7 @@
   import { notify } from "./lib/notify";
   import { api } from "./lib/api";
   import { subscribe, broadcast, EVENTS } from "./lib/sync";
+  import { save, open } from "@tauri-apps/plugin-dialog";
   import { textColorsFor } from "./lib/contrast";
   import type { PomodoroConfig } from "./lib/types";
 
@@ -140,6 +141,31 @@
     await progressStore.load();
   }
 
+  async function exportTasks() {
+    try {
+      const path = await save({
+        defaultPath: `fopomoro-tasks-${new Date().toISOString().slice(0, 10)}.json`,
+        filters: [{ name: "JSON", extensions: ["json"] }],
+      });
+      if (!path) return;
+      await api.exportTasksTo(path);
+    } catch (e) {
+      console.error("[fopomoro] export failed:", e);
+    }
+  }
+
+  async function importTasks() {
+    try {
+      const selected = await open({ multiple: false, filters: [{ name: "JSON", extensions: ["json"] }] });
+      if (typeof selected !== "string") return;
+      await api.importTasksFrom(selected);
+      await tasksStore.load();
+      await broadcast(EVENTS.tasksChanged);
+    } catch (e) {
+      console.error("[fopomoro] import failed:", e);
+    }
+  }
+
   onDestroy(() => {
     pomodoro.dispose();
     ro?.disconnect();
@@ -209,6 +235,14 @@
     />
   </div>
 
+  <div class="data-row">
+    <span class="section-header">Tasks data</span>
+    <div class="data-actions">
+      <button class="data-btn" onclick={importTasks}>Import</button>
+      <button class="data-btn" onclick={exportTasks}>Export</button>
+    </div>
+  </div>
+
   <Account onAuthChanged={reloadAfterAuth} />
 </main>
 
@@ -237,6 +271,10 @@
 
   .startup-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 8px; }
   .startup-row input[type="checkbox"] { accent-color: var(--accent); cursor: pointer; }
+
+  .data-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 8px; }
+  .data-actions { display: flex; gap: 6px; }
+  .data-btn { font-size: 11px; padding: 3px 8px; }
 
   .bg-row { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
   .swatches { display: flex; align-items: center; gap: 6px; flex: 1; }

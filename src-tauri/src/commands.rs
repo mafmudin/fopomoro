@@ -56,20 +56,68 @@ pub fn next_task_number(tasks: &[FoTask]) -> i32 {
     max + 1
 }
 
-#[tauri::command]
-pub async fn get_tasks(state: State<'_, AppState>) -> Result<Vec<FoTask>, String> {
-    let dir = state.data_dir.clone();
-    // Cloud only when signed in; otherwise read the local mirror.
-    if let Some((cfg, token)) = auth::active_session(state.inner()).await {
+/// Current tasks from the source of truth: cloud when signed in (and mirrored
+/// locally), otherwise the local mirror. Shared by `get_tasks` and export.
+pub async fn load_current_tasks(state: &AppState) -> Vec<FoTask> {
+    if let Some((cfg, token)) = auth::active_session(state).await {
         match supabase::get_tasks(&state.http, &cfg, &token).await {
             Ok(tasks) => {
-                let _ = storage::write_json(&dir, "tasks.json", &tasks);
-                return Ok(tasks);
+                let _ = storage::write_json(&state.data_dir, "tasks.json", &tasks);
+                return tasks;
             }
             Err(e) => eprintln!("[supabase] get_tasks failed, falling back to local: {e}"),
         }
     }
-    Ok(storage::read_json(&dir, "tasks.json"))
+    storage::read_json(&state.data_dir, "tasks.json")
+}
+
+#[tauri::command]
+pub async fn get_tasks(state: State<'_, AppState>) -> Result<Vec<FoTask>, String> {
+    Ok(load_current_tasks(state.inner()).await)
+}
+
+/// Write the current task list to `path` as pretty JSON. Returns the count.
+#[tauri::command]
+pub async fn export_tasks_to(path: String, state: State<'_, AppState>) -> Result<usize, String> {
+    let tasks = load_current_tasks(state.inner()).await;
+    let json = serde_json::to_string_pretty(&tasks).map_err(|e| e.to_string())?;
+    std::fs::write(&path, json).map_err(|e| e.to_string())?;
+    Ok(tasks.len())
+}
+
+/// Read a JSON task file from `path` and APPEND its tasks as new ones (fresh id +
+/// FO-NN; pushed to cloud when signed in). Non-destructive. Returns the merged list.
+#[tauri::command]
+pub async fn import_tasks_from(path: String, state: State<'_, AppState>) -> Result<Vec<FoTask>, String> {
+    let text = std::fs::read_to_string(&path).map_err(|e| e.to_string())?;
+    let imported: Vec<FoTask> =
+        serde_json::from_str(&text).map_err(|e| format!("invalid task file: {e}"))?;
+
+    let dir = state.data_dir.clone();
+    let mut tasks: Vec<FoTask> = storage::read_json(&dir, "tasks.json");
+    let session = auth::active_session(state.inner()).await;
+
+    for imp in &imported {
+        let n = next_task_number(&tasks);
+        let mut task = FoTask {
+            id: Uuid::new_v4().to_string(),
+            task_id: format!("FO-{:02}", n),
+            title: imp.title.trim().to_string(),
+            is_completed: imp.is_completed,
+            created_at: if imp.created_at.is_empty() { now_rfc3339() } else { imp.created_at.clone() },
+            completed_at: imp.completed_at.clone(),
+            pomodoro_count: imp.pomodoro_count,
+        };
+        if let Some((cfg, token)) = &session {
+            match supabase::insert_task(&state.http, cfg, token, &task).await {
+                Ok(saved) => task = saved, // adopt DB id + task_number
+                Err(e) => eprintln!("[import] insert failed for '{}': {e}", task.title),
+            }
+        }
+        tasks.push(task);
+    }
+    storage::write_json(&dir, "tasks.json", &tasks)?;
+    Ok(tasks)
 }
 
 #[tauri::command]

@@ -18,6 +18,11 @@ export const api = {
   loadProgress: () => invoke<FoSession>("load_progress"),
   saveProgress: (session: FoSession) => invoke<void>("save_progress", { session }),
 
+  // Import/export tasks (JSON file). Export writes the current list and returns
+  // the count; import appends a file's tasks as new ones and returns the merged list.
+  exportTasksTo: (path: string) => invoke<number>("export_tasks_to", { path }),
+  importTasksFrom: (path: string) => invoke<FoTask[]>("import_tasks_from", { path }),
+
   // Auth (Email OTP). Cloud sync is opt-in: signed out ⇒ everything stays local.
   authStatus: () => invoke<AuthStatus>("auth_status"),
   authRequestOtp: (email: string) => invoke<void>("auth_request_otp", { email }),

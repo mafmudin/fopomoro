@@ -22,7 +22,10 @@
       "Read(//home/nine/**)",
       "Read(//mnt/wsl/**)",
       "Read(//etc/**)",
-      "Bash(cd *)"
+      "Bash(cd *)",
+      "Bash(git add *)",
+      "Bash(git commit -q -m 'docs: design spec for See-all tasks window *)",
+      "Bash(git commit -q -m 'docs: implementation plan for See-all tasks window *)"
     ]
   }
 }

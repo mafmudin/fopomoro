@@ -27,6 +27,7 @@ pub fn run() {
 
     tauri::Builder::default()
         .plugin(tauri_plugin_notification::init())
+        .plugin(tauri_plugin_dialog::init())
         // Launch at login (opt-in via the Settings toggle). LaunchAgent on macOS,
         // registry Run key on Windows. No extra CLI args on autostart.
         .plugin(tauri_plugin_autostart::init(
@@ -78,6 +79,8 @@ pub fn run() {
             commands::record_session,
             commands::load_progress,
             commands::save_progress,
+            commands::export_tasks_to,
+            commands::import_tasks_from,
             auth::auth_request_otp,
             auth::auth_verify_otp,
             auth::auth_status,
