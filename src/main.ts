@@ -1,9 +1,14 @@
-import { mount } from 'svelte'
-import './theme.css'
-import App from './App.svelte'
+import { mount } from "svelte";
+import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
+import "./theme.css";
+import App from "./App.svelte";
+import AllTasks from "./lib/components/AllTasks.svelte";
 
-const app = mount(App, {
-  target: document.getElementById('app')!,
-})
+const label = getCurrentWebviewWindow().label;
+const Component = label === "all-tasks" ? AllTasks : App;
 
-export default app
+const app = mount(Component, {
+  target: document.getElementById("app")!,
+});
+
+export default app;
