@@ -141,6 +141,7 @@
   <header class="titlebar" data-tauri-drag-region>
     <span class="title" data-tauri-drag-region>FoPoMoro</span>
     <div class="titlebar-actions">
+      <button class="min" title="Minimize" onclick={() => getCurrentWindow().minimize()}>–</button>
       <button class="danger close" title="Close" onclick={() => getCurrentWindow().close()}>✕</button>
     </div>
   </header>
@@ -214,6 +215,7 @@
   }
   .title { font-size: 13px; font-weight: 600; color: var(--text); }
   .titlebar-actions { display: flex; align-items: center; gap: 4px; }
+  .min { width: 24px; height: 24px; padding: 0; font-size: 14px; line-height: 1; }
   .close { width: 24px; height: 24px; padding: 0; font-size: 11px; }
   .opacity-row { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
   .opacity-row input[type="range"] { flex: 1; accent-color: var(--accent); }

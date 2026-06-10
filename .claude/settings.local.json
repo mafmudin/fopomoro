@@ -21,7 +21,8 @@
       "Bash(npm run *)",
       "Read(//home/nine/**)",
       "Read(//mnt/wsl/**)",
-      "Read(//etc/**)"
+      "Read(//etc/**)",
+      "Bash(cd *)"
     ]
   }
 }
