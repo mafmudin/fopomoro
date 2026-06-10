@@ -15,6 +15,7 @@
   import { playChime } from "./lib/sound";
   import { notify } from "./lib/notify";
   import { api } from "./lib/api";
+  import { subscribe, broadcast, EVENTS } from "./lib/sync";
   import { textColorsFor } from "./lib/contrast";
   import type { PomodoroConfig } from "./lib/types";
 
@@ -34,6 +35,8 @@
 
   let panelEl: HTMLElement | undefined = $state();
   let ro: ResizeObserver | undefined;
+  let appUnlisteners: Array<() => void> = [];
+  let appUnfocus: (() => void) | undefined;
 
   // "Run at startup" — source of truth is the OS (registry/LaunchAgent), read via
   // the autostart plugin; we mirror it into this state for the toggle.
@@ -55,7 +58,9 @@
   // store's lock guards, and `timerRunning` is also passed to <TaskList> as a
   // prop to show the "locked" notice.
   $effect(() => {
-    tasksStore.setTimerRunning($pomodoroState.isRunning);
+    const running = $pomodoroState.isRunning;
+    tasksStore.setTimerRunning(running);
+    void broadcast(EVENTS.timerRunning, running);
   });
 
   pomodoro.onSessionComplete(async (minutes, wasFocus) => {
@@ -114,6 +119,14 @@
       });
       ro.observe(el);
     }
+
+    // Cross-window sync: reflect changes made in the All Tasks window.
+    appUnlisteners.push(await subscribe(EVENTS.tasksChanged, () => { void tasksStore.load(); void progressStore.load(); }));
+    appUnlisteners.push(await subscribe(EVENTS.activeChanged, (id) => tasksStore.applyActiveId(id as string | null)));
+    appUnlisteners.push(await subscribe(EVENTS.timerRunning, (running) => tasksStore.setTimerRunning(running as boolean)));
+    appUnfocus = await getCurrentWindow().onFocusChanged(({ payload: focused }) => {
+      if (focused) void tasksStore.load();
+    });
   });
 
   function persistConfig(config: PomodoroConfig) {
@@ -130,6 +143,8 @@
   onDestroy(() => {
     pomodoro.dispose();
     ro?.disconnect();
+    appUnlisteners.forEach((u) => u());
+    appUnfocus?.();
   });
 </script>
 
