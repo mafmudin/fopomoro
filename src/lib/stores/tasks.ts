@@ -1,6 +1,7 @@
 import { writable, derived, get } from "svelte/store";
 import type { FoTask } from "../types";
 import { api } from "../api";
+import { broadcast, EVENTS } from "../sync";
 
 function isToday(iso: string | null): boolean {
   if (!iso) return false;
@@ -43,6 +44,7 @@ export function createTasksStore() {
       const created = await api.insertTask(title);
       tasks.update((arr) => [...arr, created]);
       newTaskTitle.set("");
+      await broadcast(EVENTS.tasksChanged);
     } catch (e) {
       console.error("[tasks] insert failed:", e);
     }
@@ -63,6 +65,7 @@ export function createTasksStore() {
     } catch (e) {
       console.error("[tasks] update failed:", e);
     }
+    await broadcast(EVENTS.tasksChanged);
   }
 
   async function remove(task: FoTask) {
@@ -74,6 +77,7 @@ export function createTasksStore() {
     } catch (e) {
       console.error("[tasks] delete failed:", e);
     }
+    await broadcast(EVENTS.tasksChanged);
   }
 
   function setActive(task: FoTask) {
@@ -81,11 +85,18 @@ export function createTasksStore() {
     if (timerRunning && current !== null && current !== task.id) {
       switchedDuringSession = true;
     }
-    if (current === task.id) {
-      activeTaskId.set(null);
-      return;
-    }
-    activeTaskId.set(task.id);
+    const next = current === task.id ? null : task.id;
+    activeTaskId.set(next);
+    void broadcast(EVENTS.activeChanged, next);
+  }
+
+  // Apply an active-task change received from another window. Force-sets the id
+  // (no toggle, no re-broadcast) and respects the mid-session switch rule.
+  function applyActiveId(id: string | null) {
+    const current = get(activeTaskId);
+    if (id === current) return;
+    if (timerRunning && current !== null && id !== null) switchedDuringSession = true;
+    activeTaskId.set(id);
   }
 
   function setTimerRunning(running: boolean) {
@@ -109,6 +120,7 @@ export function createTasksStore() {
           console.error("[tasks] update (pomodoro) failed:", e);
         }
       }
+      await broadcast(EVENTS.tasksChanged);
     }
 
     try {
@@ -127,7 +139,7 @@ export function createTasksStore() {
     taskCountDisplay,
     todayCompletedCount,
     load, add, toggle, remove, setActive, setTimerRunning,
-    onFocusSessionCompleted, registerTaskToggled,
+    onFocusSessionCompleted, registerTaskToggled, applyActiveId,
   };
 }
 
