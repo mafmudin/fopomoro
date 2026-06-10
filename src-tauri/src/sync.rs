@@ -1,19 +1,18 @@
 //! Reconcile local ↔ cloud task lists right after sign-in (Tahap 3).
 //!
-//! Smart-merge policy (chosen to avoid duplicates on re-login / multi-device):
-//!   - cloud has tasks            → adopt cloud (server is canonical)
-//!   - cloud empty + local tasks  → push local up once, then adopt the result
-//!   - both empty                 → no-op
+//! Merge policy:
+//!   - local tasks that are genuinely anonymous (created while never signed in →
+//!     no owner tag) are PUSHED up and merged into this account, even if the
+//!     cloud already has data. This is the "I built tasks locally, then signed
+//!     in" case — they must not vanish.
+//!   - a mirror already tagged with an account is NOT pushed: it's either ours
+//!     (normally cleared on sign-out, so empty) or another account's leftover
+//!     (must not leak into this one). In both cases we just adopt the server.
+//!   - after any push, the canonical server state is adopted as the new mirror.
 //!
-//! So a user who worked locally and *then* signs in keeps their tasks, while a
-//! second sign-in (cloud already populated) never re-uploads and never dupes.
-//!
-//! Cross-account safety: the local mirror is tagged with the `user_id` that owns
-//! it (`sync_owner.json`). The "cloud empty → push local" branch ONLY fires when
-//! the mirror belongs to this same user or to the never-signed-in/anonymous state
-//! (no owner). Without this, signing out of account A (which keeps A's tasks in
-//! the local mirror by design) and then into a fresh account B would push A's
-//! tasks into B — they'd "replicate" with new ids. The owner tag blocks that.
+//! Cross-account safety hinges on the owner tag (`sync_owner.json`): only the
+//! untagged/anonymous state is ever uploaded, so signing out of A and into a
+//! fresh B can never replicate A's tasks into B.
 
 use crate::models::FoTask;
 use crate::storage;
@@ -22,8 +21,8 @@ use std::path::Path;
 
 const OWNER_FILE: &str = "sync_owner.json";
 
-/// `user_id` of the account that currently owns `tasks.json` ("" if never signed
-/// in / anonymous local tasks).
+/// `user_id` of the account that owns `tasks.json` ("" = never signed in /
+/// anonymous local tasks).
 fn mirror_owner(data_dir: &Path) -> String {
     storage::read_json::<String>(data_dir, OWNER_FILE)
 }
@@ -40,38 +39,23 @@ pub async fn reconcile_on_login(
     data_dir: &Path,
 ) -> Result<(), String> {
     let server = supabase::get_tasks(http, cfg, token).await?;
-
-    // Cloud already has data → it wins; just refresh the local mirror.
-    if !server.is_empty() {
-        let _ = storage::write_json(data_dir, "tasks.json", &server);
-        set_mirror_owner(data_dir, user_id);
-        return Ok(());
-    }
-
-    // Cloud empty. Only push the local mirror up if it actually belongs to THIS
-    // user (or to the anonymous, never-signed-in state). If it belongs to another
-    // account (e.g. signed out of A, now signing into fresh B), discard it so A's
-    // tasks don't leak into B.
     let local: Vec<FoTask> = storage::read_json(data_dir, "tasks.json");
     let owner = mirror_owner(data_dir);
-    let belongs_to_other = !owner.is_empty() && owner != user_id;
 
-    if local.is_empty() || belongs_to_other {
-        if belongs_to_other {
-            let _ = storage::write_json(data_dir, "tasks.json", &Vec::<FoTask>::new());
-        }
-        set_mirror_owner(data_dir, user_id);
-        return Ok(());
-    }
-
-    // First-ever sign-in for this account with genuine local tasks. Upload them
-    // (server assigns id + task_number per-user), then adopt the canonical state.
-    for task in &local {
-        if let Err(e) = supabase::insert_task(http, cfg, token, task).await {
-            eprintln!("[sync] failed to upload local task '{}': {e}", task.title);
+    // Push only genuinely anonymous local-first tasks (no owner). A mirror tagged
+    // with an account is either already synced (ours) or someone else's leftover —
+    // pushing it would duplicate or leak, so we skip and adopt the server instead.
+    if owner.is_empty() && !local.is_empty() {
+        for task in &local {
+            if let Err(e) = supabase::insert_task(http, cfg, token, task).await {
+                eprintln!("[sync] failed to upload local task '{}': {e}", task.title);
+            }
         }
     }
-    let merged = supabase::get_tasks(http, cfg, token).await.unwrap_or(local);
+
+    // Adopt the canonical server state (now includes anything just pushed). On a
+    // re-fetch failure, fall back to the server snapshot we already have.
+    let merged = supabase::get_tasks(http, cfg, token).await.unwrap_or(server);
     let _ = storage::write_json(data_dir, "tasks.json", &merged);
     set_mirror_owner(data_dir, user_id);
     Ok(())

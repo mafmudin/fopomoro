@@ -106,7 +106,7 @@ Supabase yang sudah ada), via endpoint GoTrue REST:
 | 0 — DB & RLS | ✅ applied | `supabase/migrations/0001_per_user_isolation.sql` sudah di-run user |
 | 1 — Auth core | ✅ kode | `src-tauri/src/auth.rs` (OTP, session store, refresh) |
 | 2 — Gating cloud/local | ✅ kode | `commands.rs` lewat `auth::active_session`; data calls pakai user JWT |
-| 3 — Migrasi login | ✅ kode | `src-tauri/src/sync.rs` (smart-merge: server-empty→push, else adopt) |
+| 3 — Migrasi login | ✅ kode | `src-tauri/src/sync.rs` (merge: push hanya mirror anonim/owner-kosong, lalu adopt server) |
 | 4 — UI | ✅ kode + ✅ frontend check | `Account.svelte`; `npm run check` 0 error, 24/24 test lulus |
 | 5 — Verifikasi | ⬜ butuh build Rust + run | checklist di bawah |
 
@@ -154,6 +154,14 @@ dan mengunggah isi mirror (yang masih milik A) ke akun B.
 Cabang push hanya jalan bila mirror milik user yang sama atau anonim (belum
 pernah login); kalau milik akun lain → mirror dibuang, tidak di-push. Tidak
 mengubah perilaku "local copy preserved". File: `sync.rs`, `auth.rs`.
+
+**Bug #2 — task lokal-first hilang saat login (FIXED):** punya task lokal (signed
+out) → login akun A yang cloud-nya sudah berisi → task lokal **hilang** (policy
+lama "cloud non-empty → adopt, buang lokal"). Harusnya **merge**. Fix: `reconcile`
+kini push task yang **owner-nya kosong** (anonim, belum pernah ke cloud mana pun)
+ke akun yang dipakai login, walau cloud sudah ada isi, lalu adopt server. Mirror
+yang sudah ber-owner (milik akun lain / sisa) tidak di-push → tetap aman dari
+duplikat & kebocoran. File: `sync.rs`.
 
 **Lanjutan — hapus mirror saat sign-out (diputuskan & FIXED):** untuk menutup
 sisa lubang privasi (di mesin bersama task A tetap tampil di mode lokal setelah
